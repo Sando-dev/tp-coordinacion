@@ -128,22 +128,37 @@ func (e *ExchangeMiddleware) StartConsuming(
 	
 	e.isConsuming = true
 
-	go func() {
-		for d := range msgs {
-			body := string(d.Body)
-			msg := Message{
-				Body: body,
-			}
-			ack := func() {
-				d.Ack(false)
-			}
-			nack := func() {
-				d.Nack(false, false)
-			}
+	// go func() {
+	// 	for d := range msgs {
+	// 		body := string(d.Body)
+	// 		msg := Message{
+	// 			Body: body,
+	// 		}
+	// 		ack := func() {
+	// 			d.Ack(false)
+	// 		}
+	// 		nack := func() {
+	// 			d.Nack(false, false)
+	// 		}
 
-			callbackFunc(msg, ack, nack)
+	// 		callbackFunc(msg, ack, nack)
+	// 	}
+	// }()
+
+	for d := range msgs {
+		body := string(d.Body)
+		msg := Message{
+			Body: body,
 		}
-	}()
+		ack := func() {
+			d.Ack(false)
+		}
+		nack := func() {
+			d.Nack(false, false)
+		}
+
+		callbackFunc(msg, ack, nack)
+	}
 
 	return nil
 }
