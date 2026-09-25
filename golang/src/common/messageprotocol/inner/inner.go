@@ -20,8 +20,9 @@ func deserializeJson(message []byte) ([]interface{}, error) {
 	return data, nil
 }
 
-func SerializeMessage(fruitRecords []fruititem.FruitItem) (*middleware.Message, error) {
+func SerializeMessage(clientId uint32, fruitRecords []fruititem.FruitItem) (*middleware.Message, error) {
 	data := []interface{}{}
+	data = append(data, clientId)
 	for _, fruitRecord := range fruitRecords {
 		datum := []interface{}{
 			fruitRecord.Fruit,
@@ -39,32 +40,39 @@ func SerializeMessage(fruitRecords []fruititem.FruitItem) (*middleware.Message, 
 	return &message, nil
 }
 
-func DeserializeMessage(message *middleware.Message) ([]fruititem.FruitItem, bool, error) {
+func DeserializeMessage(message *middleware.Message) (uint32, []fruititem.FruitItem, bool, error) {
 	data, err := deserializeJson([]byte((*message).Body))
 	if err != nil {
-		return nil, false, err
+		return 0, nil, false, err
 	}
 
+	clientIdFloat, ok := data[0].(float64)
+	if !ok {
+		return 0, nil, false, errors.New("Client ID is not a number")
+	}
+
+    clientId := uint32(clientIdFloat)
+
 	fruitRecords := []fruititem.FruitItem{}
-	for _, datum := range data {
+	for _, datum := range data[1:] {
 		fruitPair, ok := datum.([]interface{})
 		if !ok {
-			return nil, false, errors.New("Datum is not an array")
+			return 0, nil, false, errors.New("Datum is not an array")
 		}
 
 		fruit, ok := fruitPair[0].(string)
 		if !ok {
-			return nil, false, errors.New("Datum is not a (fruit, amount) pair")
+			return 0, nil, false, errors.New("Datum is not a (fruit, amount) pair")
 		}
 
 		fruitAmount, ok := fruitPair[1].(float64)
 		if !ok {
-			return nil, false, errors.New("Datum is not a (fruit, amount) pair")
+			return 0, nil, false, errors.New("Datum is not a (fruit, amount) pair")
 		}
 
 		fruitRecord := fruititem.FruitItem{Fruit: fruit, Amount: uint32(fruitAmount)}
 		fruitRecords = append(fruitRecords, fruitRecord)
 	}
 
-	return fruitRecords, len(fruitRecords) == 0, nil
+	return clientId, fruitRecords, len(fruitRecords) == 0, nil
 }
