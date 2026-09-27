@@ -27,6 +27,8 @@ type Aggregation struct {
 	inputExchange middleware.Middleware
 	fruitItemMap map[uint32]map[string]fruititem.FruitItem
 	topSize       int
+	eofReceived   map[uint32]int
+	sumAmount     int
 }
 
 func NewAggregation(config AggregationConfig) (*Aggregation, error) {
@@ -49,6 +51,8 @@ func NewAggregation(config AggregationConfig) (*Aggregation, error) {
 		inputExchange: inputExchange,
 		fruitItemMap:  map[uint32]map[string]fruititem.FruitItem{},
 		topSize:       config.TopSize,
+		eofReceived:   map[uint32]int{},
+		sumAmount:     config.SumAmount,
 	}, nil
 }
 
@@ -68,9 +72,14 @@ func (aggregation *Aggregation) handleMessage(msg middleware.Message, ack func()
 	}
 
 	if isEof {
-		if err := aggregation.handleEndOfRecordsMessage(clientId); err != nil {
-			slog.Error("While handling end of record message", "err", err)
+		aggregation.eofReceived[clientId]++
+
+		if aggregation.eofReceived[clientId] == aggregation.sumAmount {
+			if err := aggregation.handleEndOfRecordsMessage(clientId); err != nil {
+				slog.Error("While handling end of record message", "err", err)
+			}
 		}
+
 		return
 	}
 

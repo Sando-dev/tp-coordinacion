@@ -21,9 +21,11 @@ type SumConfig struct {
 }
 
 type Sum struct {
-	inputQueue     middleware.Middleware
-	outputExchange middleware.Middleware
-	fruitItemMap   map[uint32]map[string]fruititem.FruitItem
+	inputQueue     		middleware.Middleware
+	outputExchange 		middleware.Middleware
+	coordinationInput	middleware.Middleware
+	coordinationOutput	middleware.Middleware
+	fruitItemMap   		map[uint32]map[string]fruititem.FruitItem
 }
 
 func NewSum(config SumConfig) (*Sum, error) {
@@ -45,39 +47,70 @@ func NewSum(config SumConfig) (*Sum, error) {
 		return nil, err
 	}
 
+	coordinationInputKey := []string{
+		fmt.Sprintf("%s_%d", config.SumPrefix, config.Id),
+	}
+
+	coordinationInput, err := middleware.CreateExchangeMiddleware(config.SumPrefix, coordinationInputKey, connSettings)
+	if err != nil {
+		outputExchange.Close()
+		inputQueue.Close()
+		return nil, err
+	}
+
+	coordinationOutputKeys := make([]string, config.SumAmount)
+	for i := range config.SumAmount {
+		coordinationOutputKeys[i] = fmt.Sprintf("%s_%d", config.SumPrefix, i)
+	}
+
+
+	coordinationOutput, err := middleware.CreateExchangeMiddleware(config.SumPrefix, coordinationOutputKeys, connSettings)
+	if err != nil {
+		outputExchange.Close()
+		coordinationInput.Close()
+		inputQueue.Close()
+		return nil, err
+	}
+
 	return &Sum{
-		inputQueue:     inputQueue,
-		outputExchange: outputExchange,
-		fruitItemMap:   map[uint32]map[string]fruititem.FruitItem{},
+		inputQueue:     	inputQueue,
+		outputExchange: 	outputExchange,
+		coordinationInput: 	coordinationInput,
+		coordinationOutput: coordinationOutput,
+		fruitItemMap:   	map[uint32]map[string]fruititem.FruitItem{},
 	}, nil
 }
 
 func (sum *Sum) Run() {
-	sum.inputQueue.StartConsuming(func(msg middleware.Message, ack, nack func()) {
-		sum.handleMessage(msg, ack, nack)
-	})
+	go sum.inputQueue.StartConsuming(func(msg middleware.Message, ack, nack func()) {
+        sum.handleInputMessage(msg, ack, nack)
+    })
+
+    sum.coordinationInput.StartConsuming(func(msg middleware.Message, ack, nack func()) {
+        sum.handleCoordinationMessage(msg, ack, nack)
+    })
 }
 
-func (sum *Sum) handleMessage(msg middleware.Message, ack func(), nack func()) {
-	defer ack()
+// func (sum *Sum) handleMessage(msg middleware.Message, ack func(), nack func()) {
+// 	defer ack()
 
-	clientId, fruitRecords, isEof, err := inner.DeserializeMessage(&msg)
-	if err != nil {
-		slog.Error("While deserializing message", "err", err)
-		return
-	}
+// 	clientId, fruitRecords, isEof, err := inner.DeserializeMessage(&msg)
+// 	if err != nil {
+// 		slog.Error("While deserializing message", "err", err)
+// 		return
+// 	}
 
-	if isEof {
-		if err := sum.handleEndOfRecordMessage(clientId); err != nil {
-			slog.Error("While handling end of record message", "err", err)
-		}
-		return
-	}
+// 	if isEof {
+// 		if err := sum.handleEndOfRecordMessage(clientId); err != nil {
+// 			slog.Error("While handling end of record message", "err", err)
+// 		}
+// 		return
+// 	}
 
-	if err := sum.handleDataMessage(clientId, fruitRecords); err != nil {
-		slog.Error("While handling data message", "err", err)
-	}
-}
+// 	if err := sum.handleDataMessage(clientId, fruitRecords); err != nil {
+// 		slog.Error("While handling data message", "err", err)
+// 	}
+// }
 
 func (sum *Sum) handleEndOfRecordMessage(clientId uint32) error {
     slog.Info("Received End Of Records message", "clientId", clientId)
@@ -128,4 +161,45 @@ func (sum *Sum) handleDataMessage(clientId uint32, fruitRecords []fruititem.Frui
 		}
 	}
 	return nil
+}
+
+
+func (sum *Sum) handleInputMessage(msg middleware.Message,ack func(),nack func()) {
+	defer ack()
+
+	clientId, fruitRecords, isEof, err := inner.DeserializeMessage(&msg)
+	if err != nil {
+		slog.Error("While deserializing message", "err", err)
+		return
+	}
+
+	if isEof {
+		if err := sum.coordinationOutput.Send(msg); err != nil {
+			slog.Error("While broadcasting EOF", "err", err)
+		}
+		return
+	}
+
+	if err := sum.handleDataMessage(clientId, fruitRecords); err != nil {
+		slog.Error("While handling data message", "err", err)
+	}
+}
+
+func (sum *Sum) handleCoordinationMessage(msg middleware.Message,ack func(),nack func()) {
+	defer ack()
+
+	clientId, _, isEof, err := inner.DeserializeMessage(&msg)
+	if err != nil {
+		slog.Error("While deserializing coordination message", "err", err)
+		return
+	}
+
+	if !isEof {
+		slog.Error("Unexpected non-EOF coordination message")
+		return
+	}
+
+	if err := sum.handleEndOfRecordMessage(clientId); err != nil {
+		slog.Error("While handling end of record message", "err", err)
+	}
 }
