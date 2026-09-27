@@ -145,3 +145,8 @@ func (q *QueueMiddleware) StopConsuming() error {
 	q.isConsuming = false
 	return nil
 }
+
+
+func (q *QueueMiddleware) SendTo(msg Message, key string) error {
+	return q.Send(msg)
+}

@@ -183,3 +183,32 @@ func (e *ExchangeMiddleware) StopConsuming() error {
 	e.isConsuming = false
 	return nil
 }
+
+func (e *ExchangeMiddleware) SendTo(msg Message, key string) error {
+    if e.isDisconnected() {
+        return ErrMessageMiddlewareDisconnected
+    }
+
+    ctx := context.Background()
+
+    err := e.channel.PublishWithContext(
+        ctx,
+        e.exchangeName,
+        key,
+        false,
+        false,
+        amqp.Publishing{
+            ContentType: "text/plain",
+            Body:        []byte(msg.Body),
+        },
+    )
+
+    if err != nil {
+        if e.isDisconnected() {
+            return ErrMessageMiddlewareDisconnected
+        }
+        return ErrMessageMiddlewareMessage
+    }
+
+    return nil
+}
