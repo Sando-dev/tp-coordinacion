@@ -147,3 +147,21 @@ func (aggregation *Aggregation) buildFruitTop(clientId uint32) []fruititem.Fruit
 	finalTopSize := min(aggregation.topSize, len(fruitItems))
 	return fruitItems[:finalTopSize]
 }
+
+func (aggregation *Aggregation) Close() error {
+	var firstErr error
+
+	if err := aggregation.inputExchange.StopConsuming(); err != nil {
+		firstErr = err
+	}
+
+	if err := aggregation.inputExchange.Close(); err != nil && firstErr == nil {
+		firstErr = err
+	}
+
+	if err := aggregation.outputQueue.Close(); err != nil && firstErr == nil {
+		firstErr = err
+	}
+
+	return firstErr
+}

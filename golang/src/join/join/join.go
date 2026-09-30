@@ -122,3 +122,21 @@ func (join *Join) buildFruitTop(clientId uint32) []fruititem.FruitItem {
 
     return fruitItems[:finalTopSize]
 }
+
+func (join *Join) Close() error {
+	var firstErr error
+
+	if err := join.inputQueue.StopConsuming(); err != nil {
+		firstErr = err
+	}
+
+	if err := join.inputQueue.Close(); err != nil && firstErr == nil {
+		firstErr = err
+	}
+
+	if err := join.outputQueue.Close(); err != nil && firstErr == nil {
+		firstErr = err
+	}
+
+	return firstErr
+}

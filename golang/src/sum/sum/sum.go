@@ -209,3 +209,31 @@ func getAggregationIndex(clientId uint32, fruit string, aggregationAmount int) i
     fmt.Fprintf(h, "%d-%s", clientId, fruit)
     return int(h.Sum32() % uint32(aggregationAmount))
 }
+
+func (sum *Sum) Close() error {
+	var firstErr error
+	if err := sum.inputQueue.StopConsuming(); err != nil {
+		firstErr = err
+	}
+
+	if err := sum.coordinationInput.StopConsuming(); err != nil && firstErr == nil {
+		firstErr = err
+	}
+	if err := sum.inputQueue.Close(); err != nil && firstErr == nil {
+		firstErr = err
+	}
+
+	if err := sum.coordinationInput.Close(); err != nil && firstErr == nil {
+		firstErr = err
+	}
+
+	if err := sum.coordinationOutput.Close(); err != nil && firstErr == nil {
+		firstErr = err
+	}
+
+	if err := sum.outputExchange.Close(); err != nil && firstErr == nil {
+		firstErr = err
+	}
+
+	return firstErr
+}

@@ -5,6 +5,8 @@ import (
 	"log/slog"
 	"os"
 	"strconv"
+	"os/signal"
+	"syscall"
 
 	"github.com/7574-sistemas-distribuidos/tp-coordinacion/sum"
 )
@@ -75,7 +77,18 @@ func run() int {
 		return 1
 	}
 
-	server.Run()
+	go server.Run()
+
+	sigChan := make(chan os.Signal, 1)
+	signal.Notify(sigChan, syscall.SIGTERM, os.Interrupt)
+
+	sig := <-sigChan
+	slog.Info("Shutdown signal received", "signal", sig)
+
+	if err := server.Close(); err != nil {
+		slog.Error("While shutting down sum", "err", err)
+		return 1
+	}
 	return 0
 }
 
