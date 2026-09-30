@@ -80,15 +80,31 @@ func NewSum(config SumConfig) (*Sum, error) {
 	}, nil
 }
 
-func (sum *Sum) Run() {
-	go sum.inputQueue.StartConsuming(func(msg middleware.Message, ack, nack func()) {
-        sum.handleInputMessage(msg, ack, nack)
-    })
+func (sum *Sum) Run() error {
+	errCh := make(chan error, 2)
+	go func() {
+		err := sum.inputQueue.StartConsuming(func(
+			msg middleware.Message,
+			ack, nack func(),
+		) {
+			sum.handleInputMessage(msg, ack, nack)
+		})
 
-    sum.coordinationInput.StartConsuming(func(msg middleware.Message, ack, nack func()) {
-        sum.handleCoordinationMessage(msg, ack, nack)
-    })
+		errCh <- err
+	}()
+	go func() {
+		err := sum.coordinationInput.StartConsuming(func(
+			msg middleware.Message,
+			ack, nack func(),
+		) {
+			sum.handleCoordinationMessage(msg, ack, nack)
+		})
+
+		errCh <- err
+	}()
+	return <-errCh
 }
+
 
 func (sum *Sum) handleEndOfRecordMessage(clientId uint32) error {
     slog.Info("Received End Of Records message", "clientId", clientId)
@@ -165,43 +181,52 @@ func (sum *Sum) handleDataMessage(clientId uint32, fruitRecords []fruititem.Frui
 func (sum *Sum) handleInputMessage(msg middleware.Message,ack func(),nack func()) {
 	sum.processingMutex.Lock()
 	defer sum.processingMutex.Unlock()
-	defer ack()
 	clientId, fruitRecords, isEof, err := inner.DeserializeMessage(&msg)
 	if err != nil {
 		slog.Error("While deserializing message", "err", err)
+		nack()
 		return
 	}
 	if isEof {
 		if err := sum.coordinationOutput.Send(msg); err != nil {
 			slog.Error("While broadcasting EOF", "err", err)
+			nack()
 		}
+		ack()
 		return
 	}
 	if err := sum.handleDataMessage(clientId, fruitRecords); err != nil {
 		slog.Error("While handling data message", "err", err)
+		nack()
+		return
 	}
+
+	ack()
 }
 
 func (sum *Sum) handleCoordinationMessage(msg middleware.Message,ack func(),nack func()) {
 	sum.processingMutex.Lock()
 	defer sum.processingMutex.Unlock()
 
-	defer ack()
-
 	clientId, _, isEof, err := inner.DeserializeMessage(&msg)
 	if err != nil {
 		slog.Error("While deserializing coordination message", "err", err)
+		nack()
 		return
 	}
 
 	if !isEof {
 		slog.Error("Unexpected non-EOF coordination message")
+		nack()
 		return
 	}
 
 	if err := sum.handleEndOfRecordMessage(clientId); err != nil {
 		slog.Error("While handling end of record message", "err", err)
+		nack()
+		return
 	}
+	ack()
 }
 
 func getAggregationIndex(clientId uint32, fruit string, aggregationAmount int) int {

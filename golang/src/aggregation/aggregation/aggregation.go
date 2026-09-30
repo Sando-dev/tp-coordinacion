@@ -63,11 +63,11 @@ func (aggregation *Aggregation) Run() {
 }
 
 func (aggregation *Aggregation) handleMessage(msg middleware.Message, ack func(), nack func()) {
-	defer ack()
 
 	clientId, fruitRecords, isEof, err := inner.DeserializeMessage(&msg)
 	if err != nil {
 		slog.Error("While deserializing message", "err", err)
+		nack()
 		return
 	}
 
@@ -77,15 +77,18 @@ func (aggregation *Aggregation) handleMessage(msg middleware.Message, ack func()
 		if aggregation.eofReceived[clientId] == aggregation.sumAmount {
 			if err := aggregation.handleEndOfRecordsMessage(clientId); err != nil {
 				slog.Error("While handling end of record message", "err", err)
+				nack()
 				return
 			}
 			delete(aggregation.fruitItemMap, clientId)
 			delete(aggregation.eofReceived, clientId)
 		}
+		ack()
 		return
 	}
 
 	aggregation.handleDataMessage(clientId, fruitRecords)
+	ack()
 }
 
 func (aggregation *Aggregation) handleEndOfRecordsMessage(clientId uint32) error {

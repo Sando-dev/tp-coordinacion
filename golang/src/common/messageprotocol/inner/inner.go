@@ -46,31 +46,45 @@ func DeserializeMessage(message *middleware.Message) (uint32, []fruititem.FruitI
 		return 0, nil, false, err
 	}
 
-	clientIdFloat, ok := data[0].(float64)
-	if !ok {
-		return 0, nil, false, errors.New("Client ID is not a number")
+	if len(data) < 1 {
+		return 0, nil, false, errors.New("message has no client ID")
 	}
 
-    clientId := uint32(clientIdFloat)
+	clientIdFloat, ok := data[0].(float64)
+	if !ok {
+		return 0, nil, false, errors.New("client ID is not a number")
+	}
+
+	clientId := uint32(clientIdFloat)
 
 	fruitRecords := []fruititem.FruitItem{}
+
 	for _, datum := range data[1:] {
 		fruitPair, ok := datum.([]interface{})
 		if !ok {
-			return 0, nil, false, errors.New("Datum is not an array")
+			return 0, nil, false, errors.New("datum is not an array")
+		}
+
+		// Esperamos exactamente [fruit, amount]
+		if len(fruitPair) != 2 {
+			return 0, nil, false, errors.New("datum must contain exactly fruit and amount")
 		}
 
 		fruit, ok := fruitPair[0].(string)
 		if !ok {
-			return 0, nil, false, errors.New("Datum is not a (fruit, amount) pair")
+			return 0, nil, false, errors.New("fruit is not a string")
 		}
 
 		fruitAmount, ok := fruitPair[1].(float64)
 		if !ok {
-			return 0, nil, false, errors.New("Datum is not a (fruit, amount) pair")
+			return 0, nil, false, errors.New("fruit amount is not a number")
 		}
 
-		fruitRecord := fruititem.FruitItem{Fruit: fruit, Amount: uint32(fruitAmount)}
+		fruitRecord := fruititem.FruitItem{
+			Fruit:  fruit,
+			Amount: uint32(fruitAmount),
+		}
+
 		fruitRecords = append(fruitRecords, fruitRecord)
 	}
 

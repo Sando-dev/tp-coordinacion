@@ -57,10 +57,10 @@ func (join *Join) Run() {
 }
 
 func (join *Join) handleMessage(msg middleware.Message, ack func(), nack func()) {
-	defer ack()
 	clientId, fruitRecords, isEof, err := inner.DeserializeMessage(&msg)
 	if err != nil {
 		slog.Error("While deserializing message", "err", err)
+		nack()
 		return
 	}
 
@@ -73,20 +73,24 @@ func (join *Join) handleMessage(msg middleware.Message, ack func(), nack func())
 			message, err := inner.SerializeMessage(clientId, top)
 			if err != nil {
 				slog.Error("While serializing top", "err", err)
+				nack()
 				return
 			}
 
 			if err := join.outputQueue.Send(*message); err != nil {
 				slog.Error("While sending top", "err", err)
+				nack()
 				return
 			}
 			delete(join.fruitItemMap, clientId)
 			delete(join.eofReceived, clientId)
 		}
+		ack()
 		return
 	}
 
 	join.handleDataMessage(clientId, fruitRecords)
+	ack()
 }
 
 func (join *Join) handleDataMessage(clientId uint32, fruitRecords []fruititem.FruitItem) {
