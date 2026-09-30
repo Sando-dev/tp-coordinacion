@@ -77,11 +77,11 @@ func (aggregation *Aggregation) handleMessage(msg middleware.Message, ack func()
 		if aggregation.eofReceived[clientId] == aggregation.sumAmount {
 			if err := aggregation.handleEndOfRecordsMessage(clientId); err != nil {
 				slog.Error("While handling end of record message", "err", err)
+				return
 			}
+			delete(aggregation.fruitItemMap, clientId)
+			delete(aggregation.eofReceived, clientId)
 		}
-
-		delete(aggregation.fruitItemMap, clientId)
-		delete(aggregation.eofReceived, clientId)
 		return
 	}
 

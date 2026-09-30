@@ -71,6 +71,14 @@ func (q *QueueMiddleware) StartConsuming(
 		return ErrMessageMiddlewareDisconnected
 	}
 
+	err := q.channel.Qos(
+		1,     // prefetch count
+		0,     // prefetch size
+		false, // global
+	)
+	if err != nil {
+		return ErrMessageMiddlewareMessage
+	}
 
 	msgs, err := q.channel.Consume(
 		q.queueName,   // queue
@@ -90,22 +98,6 @@ func (q *QueueMiddleware) StartConsuming(
 
 	q.isConsuming = true
 
-	// go func() {
-	// 	for d := range msgs {
-	// 		body := string(d.Body)
-	// 		msg := Message{
-	// 			Body: body,
-	// 		}
-	// 		ack := func() {
-	// 			d.Ack(false)
-	// 		}
-	// 		nack := func() {
-	// 			d.Nack(false, false)
-	// 		}
-
-	// 		callbackFunc(msg, ack, nack)
-	// 	}
-	// }()
 
 	for d := range msgs {
 		body := string(d.Body)

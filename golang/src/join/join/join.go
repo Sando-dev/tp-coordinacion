@@ -80,9 +80,9 @@ func (join *Join) handleMessage(msg middleware.Message, ack func(), nack func())
 				slog.Error("While sending top", "err", err)
 				return
 			}
+			delete(join.fruitItemMap, clientId)
+			delete(join.eofReceived, clientId)
 		}
-		delete(join.fruitItemMap, clientId)
-		delete(join.eofReceived, clientId)
 		return
 	}
 
