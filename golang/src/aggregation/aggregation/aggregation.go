@@ -23,12 +23,12 @@ type AggregationConfig struct {
 }
 
 type Aggregation struct {
-	outputQueue   	middleware.Middleware
-	inputExchange 	middleware.Middleware
-	fruitItemMap	map[uint32]map[string]fruititem.FruitItem
-	topSize       	int
-	eofReceived   	map[uint32]int
-	sumAmount     	int
+	outputQueue   middleware.Middleware
+	inputExchange middleware.Middleware
+	fruitItemMap  map[uint32]map[string]fruititem.FruitItem
+	topSize       int
+	eofReceived   map[uint32]int
+	sumAmount     int
 }
 
 func NewAggregation(config AggregationConfig) (*Aggregation, error) {
@@ -123,7 +123,7 @@ func (aggregation *Aggregation) handleEndOfRecordsMessage(clientId uint32) error
 	return nil
 }
 
-func (aggregation *Aggregation) handleDataMessage(clientId uint32,fruitRecords []fruititem.FruitItem) {
+func (aggregation *Aggregation) handleDataMessage(clientId uint32, fruitRecords []fruititem.FruitItem) {
 	clientMap, ok := aggregation.fruitItemMap[clientId]
 	if !ok {
 		clientMap = map[string]fruititem.FruitItem{}

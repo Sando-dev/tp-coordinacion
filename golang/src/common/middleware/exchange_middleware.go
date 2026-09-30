@@ -7,22 +7,22 @@ import (
 )
 
 type ExchangeMiddleware struct {
-	connection  	*amqp.Connection
-	channel     	*amqp.Channel
-	exchangeName  	string
-	keys 			[]string
-	consumerTag 	string
-	isConsuming  	bool
+	connection   *amqp.Connection
+	channel      *amqp.Channel
+	exchangeName string
+	keys         []string
+	consumerTag  string
+	isConsuming  bool
 }
 
 func NewExchangeMiddleware(connection *amqp.Connection, channel *amqp.Channel, exchangeName string, keys []string) *ExchangeMiddleware {
 	return &ExchangeMiddleware{
-		connection:  	connection,
-		channel:     	channel,
-		exchangeName:   exchangeName,
-		keys:			keys,
-		consumerTag: 	exchangeName + "-consumer",
-		isConsuming:	false,
+		connection:   connection,
+		channel:      channel,
+		exchangeName: exchangeName,
+		keys:         keys,
+		consumerTag:  exchangeName + "-consumer",
+		isConsuming:  false,
 	}
 }
 
@@ -87,7 +87,7 @@ func (e *ExchangeMiddleware) StartConsuming(
 		true,  // exclusive
 		false, // no-wait
 		nil,   // arguments
-    )
+	)
 	if err != nil {
 		if e.isDisconnected() {
 			return ErrMessageMiddlewareDisconnected
@@ -97,9 +97,9 @@ func (e *ExchangeMiddleware) StartConsuming(
 
 	for _, key := range e.keys {
 		err = e.channel.QueueBind(
-			q.Name,	// queue name
-			key,			// routing key
-			e.exchangeName,	// exchange
+			q.Name,         // queue name
+			key,            // routing key
+			e.exchangeName, // exchange
 			false,
 			nil)
 		if err != nil {
@@ -111,13 +111,13 @@ func (e *ExchangeMiddleware) StartConsuming(
 	}
 
 	msgs, err := e.channel.Consume(
-		q.Name,	 		// queue
-		e.consumerTag,  // consumer
-		false,   		// auto ack
-		false,  		// exclusive
-		false,  		// no local
-		false,  		// no wait
-		nil,    		// args
+		q.Name,        // queue
+		e.consumerTag, // consumer
+		false,         // auto ack
+		false,         // exclusive
+		false,         // no local
+		false,         // no wait
+		nil,           // args
 	)
 	if err != nil {
 		if e.isDisconnected() {
@@ -125,7 +125,7 @@ func (e *ExchangeMiddleware) StartConsuming(
 		}
 		return ErrMessageMiddlewareMessage
 	}
-	
+
 	e.isConsuming = true
 
 	// go func() {
@@ -185,30 +185,30 @@ func (e *ExchangeMiddleware) StopConsuming() error {
 }
 
 func (e *ExchangeMiddleware) SendTo(msg Message, key string) error {
-    if e.isDisconnected() {
-        return ErrMessageMiddlewareDisconnected
-    }
+	if e.isDisconnected() {
+		return ErrMessageMiddlewareDisconnected
+	}
 
-    ctx := context.Background()
+	ctx := context.Background()
 
-    err := e.channel.PublishWithContext(
-        ctx,
-        e.exchangeName,
-        key,
-        false,
-        false,
-        amqp.Publishing{
-            ContentType: "text/plain",
-            Body:        []byte(msg.Body),
-        },
-    )
+	err := e.channel.PublishWithContext(
+		ctx,
+		e.exchangeName,
+		key,
+		false,
+		false,
+		amqp.Publishing{
+			ContentType: "text/plain",
+			Body:        []byte(msg.Body),
+		},
+	)
 
-    if err != nil {
-        if e.isDisconnected() {
-            return ErrMessageMiddlewareDisconnected
-        }
-        return ErrMessageMiddlewareMessage
-    }
+	if err != nil {
+		if e.isDisconnected() {
+			return ErrMessageMiddlewareDisconnected
+		}
+		return ErrMessageMiddlewareMessage
+	}
 
-    return nil
+	return nil
 }

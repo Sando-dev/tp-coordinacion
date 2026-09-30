@@ -2,12 +2,12 @@ package main
 
 import (
 	"errors"
+	"github.com/7574-sistemas-distribuidos/tp-coordinacion/aggregation"
 	"log/slog"
 	"os"
-	"strconv"
 	"os/signal"
+	"strconv"
 	"syscall"
-	"github.com/7574-sistemas-distribuidos/tp-coordinacion/aggregation"
 )
 
 func loadConfig() (aggregation.AggregationConfig, error) {

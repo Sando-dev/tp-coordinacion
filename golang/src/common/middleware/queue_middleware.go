@@ -11,23 +11,22 @@ type QueueMiddleware struct {
 	channel     *amqp.Channel
 	queueName   string
 	consumerTag string
-	isConsuming	bool
+	isConsuming bool
 }
 
 func NewQueueMiddleware(connection *amqp.Connection, channel *amqp.Channel, queueName string) *QueueMiddleware {
 	return &QueueMiddleware{
-		connection:		connection,
-		channel:     	channel,
-		queueName:   	queueName,
-		consumerTag: 	queueName + "-consumer",
-		isConsuming:	false,	
+		connection:  connection,
+		channel:     channel,
+		queueName:   queueName,
+		consumerTag: queueName + "-consumer",
+		isConsuming: false,
 	}
 }
 
 func (q *QueueMiddleware) isDisconnected() bool {
 	return q.connection.IsClosed() || q.channel.IsClosed()
 }
-
 
 func (q *QueueMiddleware) Close() error {
 	channelErr := q.channel.Close()
@@ -98,7 +97,6 @@ func (q *QueueMiddleware) StartConsuming(
 
 	q.isConsuming = true
 
-
 	for d := range msgs {
 		body := string(d.Body)
 		msg := Message{
@@ -137,7 +135,6 @@ func (q *QueueMiddleware) StopConsuming() error {
 	q.isConsuming = false
 	return nil
 }
-
 
 func (q *QueueMiddleware) SendTo(msg Message, key string) error {
 	return q.Send(msg)

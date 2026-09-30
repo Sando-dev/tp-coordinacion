@@ -1,11 +1,11 @@
 package join
 
 import (
-	"log/slog"
-	"sort"
 	"github.com/7574-sistemas-distribuidos/tp-coordinacion/common/fruititem"
 	"github.com/7574-sistemas-distribuidos/tp-coordinacion/common/messageprotocol/inner"
 	"github.com/7574-sistemas-distribuidos/tp-coordinacion/common/middleware"
+	"log/slog"
+	"sort"
 )
 
 type JoinConfig struct {
@@ -21,12 +21,12 @@ type JoinConfig struct {
 }
 
 type Join struct {
-	inputQueue  		middleware.Middleware
-	outputQueue 		middleware.Middleware
-	fruitItemMap		map[uint32]map[string]fruititem.FruitItem
-	eofReceived   		map[uint32]int
-	aggregationAmount   int
-	topSize				int
+	inputQueue        middleware.Middleware
+	outputQueue       middleware.Middleware
+	fruitItemMap      map[uint32]map[string]fruititem.FruitItem
+	eofReceived       map[uint32]int
+	aggregationAmount int
+	topSize           int
 }
 
 func NewJoin(config JoinConfig) (*Join, error) {
@@ -41,12 +41,12 @@ func NewJoin(config JoinConfig) (*Join, error) {
 		return nil, err
 	}
 	return &Join{
-		inputQueue: 			inputQueue,
-		outputQueue: 			outputQueue,
-		fruitItemMap:  			map[uint32]map[string]fruititem.FruitItem{},
-		eofReceived:   			map[uint32]int{},
-		aggregationAmount:     	config.AggregationAmount,
-		topSize:           		config.TopSize,
+		inputQueue:        inputQueue,
+		outputQueue:       outputQueue,
+		fruitItemMap:      map[uint32]map[string]fruititem.FruitItem{},
+		eofReceived:       map[uint32]int{},
+		aggregationAmount: config.AggregationAmount,
+		topSize:           config.TopSize,
 	}, nil
 }
 
@@ -108,23 +108,22 @@ func (join *Join) handleDataMessage(clientId uint32, fruitRecords []fruititem.Fr
 	}
 }
 
-
 func (join *Join) buildFruitTop(clientId uint32) []fruititem.FruitItem {
-    clientMap := join.fruitItemMap[clientId]
+	clientMap := join.fruitItemMap[clientId]
 
-    fruitItems := make([]fruititem.FruitItem, 0, len(clientMap))
+	fruitItems := make([]fruititem.FruitItem, 0, len(clientMap))
 
-    for _, item := range clientMap {
-        fruitItems = append(fruitItems, item)
-    }
+	for _, item := range clientMap {
+		fruitItems = append(fruitItems, item)
+	}
 
-    sort.SliceStable(fruitItems, func(i, j int) bool {
-        return fruitItems[j].Less(fruitItems[i])
-    })
+	sort.SliceStable(fruitItems, func(i, j int) bool {
+		return fruitItems[j].Less(fruitItems[i])
+	})
 
-    finalTopSize := min(join.topSize, len(fruitItems))
+	finalTopSize := min(join.topSize, len(fruitItems))
 
-    return fruitItems[:finalTopSize]
+	return fruitItems[:finalTopSize]
 }
 
 func (join *Join) Close() error {

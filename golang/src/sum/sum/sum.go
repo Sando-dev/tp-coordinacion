@@ -2,12 +2,12 @@ package sum
 
 import (
 	"fmt"
-	"log/slog"
-	"hash/fnv"
-	"sync"
 	"github.com/7574-sistemas-distribuidos/tp-coordinacion/common/fruititem"
 	"github.com/7574-sistemas-distribuidos/tp-coordinacion/common/messageprotocol/inner"
 	"github.com/7574-sistemas-distribuidos/tp-coordinacion/common/middleware"
+	"hash/fnv"
+	"log/slog"
+	"sync"
 )
 
 type SumConfig struct {
@@ -22,15 +22,15 @@ type SumConfig struct {
 }
 
 type Sum struct {
-	id					int
-	inputQueue     		middleware.Middleware
-	outputExchange 		middleware.Middleware
-	coordinationInput	middleware.Middleware
-	coordinationOutput	middleware.Middleware
-	fruitItemMap   		map[uint32]map[string]fruititem.FruitItem
-	aggregationAmount 	int
-	aggregationPrefix	string
-	processingMutex		sync.Mutex
+	id                 int
+	inputQueue         middleware.Middleware
+	outputExchange     middleware.Middleware
+	coordinationInput  middleware.Middleware
+	coordinationOutput middleware.Middleware
+	fruitItemMap       map[uint32]map[string]fruititem.FruitItem
+	aggregationAmount  int
+	aggregationPrefix  string
+	processingMutex    sync.Mutex
 }
 
 func NewSum(config SumConfig) (*Sum, error) {
@@ -69,14 +69,14 @@ func NewSum(config SumConfig) (*Sum, error) {
 		return nil, err
 	}
 	return &Sum{
-		id:					config.Id,
-		inputQueue:     	inputQueue,
-		outputExchange: 	outputExchange,
-		coordinationInput: 	coordinationInput,
+		id:                 config.Id,
+		inputQueue:         inputQueue,
+		outputExchange:     outputExchange,
+		coordinationInput:  coordinationInput,
 		coordinationOutput: coordinationOutput,
-		fruitItemMap:   	map[uint32]map[string]fruititem.FruitItem{},
-		aggregationAmount:	config.AggregationAmount,
-		aggregationPrefix:	config.AggregationPrefix,
+		fruitItemMap:       map[uint32]map[string]fruititem.FruitItem{},
+		aggregationAmount:  config.AggregationAmount,
+		aggregationPrefix:  config.AggregationPrefix,
 	}, nil
 }
 
@@ -105,67 +105,64 @@ func (sum *Sum) Run() error {
 	return <-errCh
 }
 
-
 func (sum *Sum) handleEndOfRecordMessage(clientId uint32) error {
-    slog.Info("Received End Of Records message", "clientId", clientId)
+	slog.Info("Received End Of Records message", "clientId", clientId)
 
-    clientMap := sum.fruitItemMap[clientId]
+	clientMap := sum.fruitItemMap[clientId]
 
-    fruitItems := make([]fruititem.FruitItem, 0, len(clientMap))
-    for _, fruitItem := range clientMap {
-        fruitItems = append(fruitItems, fruitItem)
-    }
+	fruitItems := make([]fruititem.FruitItem, 0, len(clientMap))
+	for _, fruitItem := range clientMap {
+		fruitItems = append(fruitItems, fruitItem)
+	}
 
-    for _, fruitItem := range fruitItems {
-        fruitRecords := []fruititem.FruitItem{fruitItem}
+	for _, fruitItem := range fruitItems {
+		fruitRecords := []fruititem.FruitItem{fruitItem}
 
-        message, err := inner.SerializeMessage(clientId, fruitRecords)
-        if err != nil {
-            slog.Debug("While serializing message", "err", err)
-            return err
-        }
+		message, err := inner.SerializeMessage(clientId, fruitRecords)
+		if err != nil {
+			slog.Debug("While serializing message", "err", err)
+			return err
+		}
 
-        index := getAggregationIndex(
-            clientId,
-            fruitItem.Fruit,
-            sum.aggregationAmount,
-        )
+		index := getAggregationIndex(
+			clientId,
+			fruitItem.Fruit,
+			sum.aggregationAmount,
+		)
 
-        routingKey := fmt.Sprintf(
-            "%s_%d",
-            sum.aggregationPrefix,
-            index,
-        )
+		routingKey := fmt.Sprintf(
+			"%s_%d",
+			sum.aggregationPrefix,
+			index,
+		)
 
+		if err := sum.outputExchange.SendTo(*message, routingKey); err != nil {
+			slog.Debug("While sending message", "err", err)
+			return err
+		}
+	}
 
+	eofRecords := []fruititem.FruitItem{}
+	message, err := inner.SerializeMessage(clientId, eofRecords)
+	if err != nil {
+		return err
+	}
 
-        if err := sum.outputExchange.SendTo(*message, routingKey); err != nil {
-            slog.Debug("While sending message", "err", err)
-            return err
-        }
-    }
-
-    eofRecords := []fruititem.FruitItem{}
-    message, err := inner.SerializeMessage(clientId, eofRecords)
-    if err != nil {
-        return err
-    }
-
-    if err := sum.outputExchange.Send(*message); err != nil {
-        return err
-    }
+	if err := sum.outputExchange.Send(*message); err != nil {
+		return err
+	}
 
 	delete(sum.fruitItemMap, clientId)
 
-    return nil
+	return nil
 }
 
 func (sum *Sum) handleDataMessage(clientId uint32, fruitRecords []fruititem.FruitItem) error {
 	clientMap, ok := sum.fruitItemMap[clientId]
-    if !ok {
-        clientMap = map[string]fruititem.FruitItem{}
-        sum.fruitItemMap[clientId] = clientMap
-    }
+	if !ok {
+		clientMap = map[string]fruititem.FruitItem{}
+		sum.fruitItemMap[clientId] = clientMap
+	}
 	for _, fruitRecord := range fruitRecords {
 		currentFruit, ok := clientMap[fruitRecord.Fruit]
 		if ok {
@@ -177,8 +174,7 @@ func (sum *Sum) handleDataMessage(clientId uint32, fruitRecords []fruititem.Frui
 	return nil
 }
 
-
-func (sum *Sum) handleInputMessage(msg middleware.Message,ack func(),nack func()) {
+func (sum *Sum) handleInputMessage(msg middleware.Message, ack func(), nack func()) {
 	sum.processingMutex.Lock()
 	defer sum.processingMutex.Unlock()
 	clientId, fruitRecords, isEof, err := inner.DeserializeMessage(&msg)
@@ -204,7 +200,7 @@ func (sum *Sum) handleInputMessage(msg middleware.Message,ack func(),nack func()
 	ack()
 }
 
-func (sum *Sum) handleCoordinationMessage(msg middleware.Message,ack func(),nack func()) {
+func (sum *Sum) handleCoordinationMessage(msg middleware.Message, ack func(), nack func()) {
 	sum.processingMutex.Lock()
 	defer sum.processingMutex.Unlock()
 
@@ -230,9 +226,9 @@ func (sum *Sum) handleCoordinationMessage(msg middleware.Message,ack func(),nack
 }
 
 func getAggregationIndex(clientId uint32, fruit string, aggregationAmount int) int {
-    h := fnv.New32a()
-    fmt.Fprintf(h, "%d-%s", clientId, fruit)
-    return int(h.Sum32() % uint32(aggregationAmount))
+	h := fnv.New32a()
+	fmt.Fprintf(h, "%d-%s", clientId, fruit)
+	return int(h.Sum32() % uint32(aggregationAmount))
 }
 
 func (sum *Sum) Close() error {

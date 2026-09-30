@@ -4,8 +4,8 @@ import (
 	"errors"
 	"log/slog"
 	"os"
-	"strconv"
 	"os/signal"
+	"strconv"
 	"syscall"
 
 	"github.com/7574-sistemas-distribuidos/tp-coordinacion/join"

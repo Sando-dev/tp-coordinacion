@@ -1,16 +1,16 @@
 package messagehandler
 
 import (
-	"sync/atomic"
 	"github.com/7574-sistemas-distribuidos/tp-coordinacion/common/fruititem"
 	"github.com/7574-sistemas-distribuidos/tp-coordinacion/common/messageprotocol/inner"
 	"github.com/7574-sistemas-distribuidos/tp-coordinacion/common/middleware"
+	"sync/atomic"
 )
 
 var nextClientId atomic.Uint32
 
 type MessageHandler struct {
-	clientId	uint32
+	clientId uint32
 }
 
 func NewMessageHandler() MessageHandler {
@@ -35,7 +35,7 @@ func (messageHandler *MessageHandler) DeserializeResultMessage(message *middlewa
 		return nil, err
 	}
 	if clientId != messageHandler.clientId {
-        return nil, nil
-    }
-    return fruitRecords, nil
+		return nil, nil
+	}
+	return fruitRecords, nil
 }
